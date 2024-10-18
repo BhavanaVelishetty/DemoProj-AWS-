@@ -7,11 +7,100 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: eu-west-2
+  stage: dev
+  environment:
+    DYNAMODB_TABLE_NAME: ${self:custom.ItemsTableName}
+
+custom:
+  ItemsTableName: Items-table-${self:provider.stage}
+
+plugins:
+  - serverless-iam-roles-per-function
 
 functions:
-  hello:
-    handler: handler.hello
+  getItem:
+    handler: api.getItem
+    name: get-item
+    memorySize: 128 # mb
+    timeout: 5 # seconds
     events:
-      - httpApi:
-          path: /
-          method: get
+      - http:
+          path: Item/{ItemId}
+          method: GET
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:GetItem"
+        Resource: !GetAtt ItemsTable.Arn
+  createItem:
+    handler: api.createItem
+    name: create-item
+    memorySize: 128 # mb
+    timeout: 5 # seconds
+    events:
+      - http:
+          path: Item
+          method: POST
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:PutItem"
+        Resource: !GetAtt ItemsTable.Arn
+  updateItem:
+    handler: api.updateItem
+    name: update-item
+    memorySize: 128 # mb
+    timeout: 5 # seconds
+    events:
+      - http:
+          path: Item/{ItemId}
+          method: PUT
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:UpdateItem"
+        Resource: !GetAtt ItemsTable.Arn
+  deleteItem:
+    handler: api.deleteItem
+    name: delete-item
+    memorySize: 128 # mb
+    timeout: 5 # seconds
+    events:
+      - http:
+          path: Item/{ItemId}
+          method: DELETE
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:DeleteItem"
+        Resource: !GetAtt ItemsTable.Arn
+  getAllItems:
+    handler: api.getAllItems
+    name: get-all-items
+    memorySize: 128 # mb
+    timeout: 5 # seconds
+    events:
+      - http:
+          path: Items
+          method: GET
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - "dynamodb:Scan"
+        Resource: !GetAtt ItemsTable.Arn
+
+resources:
+  Resources:
+    ItemsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.ItemsTableName}
+        AttributeDefinitions:
+          - AttributeName: ItemId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: ItemId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
